@@ -1,0 +1,29 @@
+name: Run Python Algorithm
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # Exécuter toutes les 5 minutes
+  workflow_dispatch:  # Permet de lancer manuellement
+  push:
+    branches:
+      - main  # Exécuter à chaque push sur la branche main
+
+jobs:
+  run-algorithm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Python script
+        run: python mon_algo.py
