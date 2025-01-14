@@ -12,7 +12,7 @@ API_KEY = "bCzqLlT7ohyMDQD5wVi1Pyn1aNUBp6tI"
 UNIQUE_VEHICLE_MODES_FILE = "unique_vehicle_modes.csv"
 
 # Dossier de stockage des données
-OUTPUT_FOLDER = "data_collection"
+OUTPUT_FOLDER = ""
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # Charger les identifiants des lignes (LineRef) depuis un fichier
