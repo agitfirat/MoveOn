@@ -1,7 +1,9 @@
 import requests
-import pandas as pd
-from datetime import datetime
 import os
+import time
+import json
+from datetime import datetime
+import pandas as pd
 
 # Configuration des APIs
 TIMETABLE_API_BASE_URL = "https://prim.iledefrance-mobilites.fr/marketplace/estimated-timetable"
@@ -13,7 +15,6 @@ UNIQUE_VEHICLE_MODES_FILE = "unique_vehicle_modes.csv"
 
 # Dossier de stockage des données
 OUTPUT_FOLDER = os.path.dirname(os.path.abspath(__file__))
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # Charger les identifiants des lignes (LineRef) depuis un fichier
 def load_valid_line_refs():
@@ -24,74 +25,66 @@ def load_valid_line_refs():
         print(f"Erreur : Le fichier {UNIQUE_VEHICLE_MODES_FILE} est introuvable.")
         return []
 
+# Fonction pour gérer les requêtes avec gestion des erreurs 429
+def make_request_with_retry(url, headers, params, max_retries=5, retry_delay=10):
+    retries = 0
+    while retries < max_retries:
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code == 200:
+            return response
+        elif response.status_code == 429:
+            print(f"Erreur 429 : Limite de requêtes atteinte. Nouvelle tentative dans {retry_delay} secondes...")
+            time.sleep(retry_delay)
+            retries += 1
+        else:
+            print(f"Erreur lors de la requête : {response.status_code} - {response.text}")
+            return response
+    print("Échec après plusieurs tentatives.")
+    return None
+
 # Requête à l'API des perturbations
 def fetch_and_save_perturbations(line_refs):
     headers = {"apikey": API_KEY}
-    perturbations = []
+    all_responses = []
 
     for line_ref in line_refs:
-        print(f"Requête API Perturbations avec LineRef : {line_ref}")  # Print de LineRef
+        print(f"Requête API Perturbations avec LineRef : {line_ref}")
         params = {"LineRef": line_ref}
 
-        response = requests.get(PERTURBATION_API_BASE_URL, headers=headers, params=params)
-
-        if response.status_code == 200:
-            data = response.json()
-            delivery = data.get("Siri", {}).get("ServiceDelivery", {}).get("GeneralMessageDelivery", [])
-            for message in delivery:
-                info_message = message.get("InfoMessage", [])
-                for info in info_message:
-                    content = info.get("Content", {}).get("Message", [])
-                    for msg in content:
-                        perturbations.append({
-                            "Timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            "LineRef": line_ref,
-                            "Message": msg.get("MessageText", {}).get("value", "Aucune perturbation"),
-                        })
+        response = make_request_with_retry(PERTURBATION_API_BASE_URL, headers, params)
+        if response and response.status_code == 200:
+            all_responses.append(response.json())
         else:
-            print(f"Erreur API Perturbations (LineRef {line_ref}) : {response.status_code} - {response.text}")
+            print(f"Erreur API Perturbations (LineRef {line_ref}) : {response.status_code if response else 'No response'}")
 
-    # Enregistrer les perturbations dans un fichier CSV
-    df = pd.DataFrame(perturbations)
-    filename = f"{OUTPUT_FOLDER}/perturbations_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.csv"
-    df.to_csv(filename, index=False)
+    # Écraser le fichier JSON existant avec les réponses brutes
+    filename = os.path.join(OUTPUT_FOLDER, "perturbations.json")
+    
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(all_responses, f, indent=4, ensure_ascii=False)
+
     print(f"Perturbations enregistrées dans : {filename}")
 
 # Requête à l'API des horaires
 def fetch_and_save_timetables(line_refs):
     headers = {"apikey": API_KEY}
-    timetables = []
+    all_responses = []
 
     for line_ref in line_refs:
+        print(f"Requête API Timetable avec LineRef : {line_ref}")
         params = {"LineRef": line_ref}
-        print(f"Requête API Timetable avec LineRef : {line_ref}")  # Print de LineRef
 
-        response = requests.get(TIMETABLE_API_BASE_URL, headers=headers, params=params)
-
-        if response.status_code == 200:
-            data = response.json()
-            delivery = data.get("Siri", {}).get("ServiceDelivery", {}).get("EstimatedTimetableDelivery", [])
-            for frame in delivery:
-                for journey in frame.get("EstimatedJourneyVersionFrame", []):
-                    for vehicle in journey.get("EstimatedVehicleJourney", []):
-                        calls = vehicle.get("EstimatedCalls", {}).get("EstimatedCall", [])
-                        destination = vehicle.get("DestinationName", [{}])[0].get("value", "Inconnue")
-                        for call in calls:
-                            arrival_time = call.get("ExpectedArrivalTime", None)
-                            timetables.append({
-                                "Timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                "LineRef": line_ref,
-                                "StopPointRef": call.get("StopPointRef", {}).get("value", ""),
-                                "ExpectedArrivalTime": arrival_time,
-                                "Destination": destination,
-                            })
+        response = make_request_with_retry(TIMETABLE_API_BASE_URL, headers, params)
+        if response and response.status_code == 200:
+            all_responses.append(response.json())
         else:
-            print(f"Erreur API Timetable (LineRef {line_ref}) : {response.status_code} - {response.text}")
+            print(f"Erreur API Timetable (LineRef {line_ref}) : {response.status_code if response else 'No response'}")
 
-    # Enregistrer les horaires dans un fichier CSV
-    df = pd.DataFrame(timetables)
-    filename = f"{OUTPUT_FOLDER}/timetables_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.csv"
-    df.to_csv(filename, index=False)
+    # Écraser le fichier JSON existant avec les réponses brutes
+    filename = os.path.join(OUTPUT_FOLDER, "timetables.json")
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(all_responses, f, indent=4, ensure_ascii=False)
+
     print(f"Horaires enregistrés dans : {filename}")
 
 # Fonction principale
@@ -107,6 +100,8 @@ def main():
 
     print("Début de la collecte des horaires...")
     fetch_and_save_timetables(line_refs)
+
+    print("Collecte terminée avec succès.")
 
 # Exécuter le script
 if __name__ == "__main__":
