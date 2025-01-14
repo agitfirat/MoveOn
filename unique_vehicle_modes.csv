@@ -1,0 +1,20 @@
+LineRef,VehicleMode,VehicleFeatureRef,NameLine
+STIF:Line::C01371:,METRO,,1
+STIF:Line::C01372:,METRO,,2
+STIF:Line::C01373:,METRO,,3
+STIF:Line::C01374:,METRO,,4
+STIF:Line::C01375:,METRO,,5
+STIF:Line::C01376:,METRO,,6
+STIF:Line::C01377:,METRO,,7
+STIF:Line::C01378:,METRO,,8
+STIF:Line::C01379:,METRO,,9
+STIF:Line::C01380:,METRO,,10
+STIF:Line::C01381:,METRO,,11
+STIF:Line::C01382:,METRO,,12
+STIF:Line::C01383:,METRO,,13
+STIF:Line::C01384:,METRO,longTrain,14
+STIF:Line::C01727:,,"longTrain, shortTrain",C
+STIF:Line::C01728:,,"longTrain, shortTrain",D
+STIF:Line::C01729:,,longTrain,E
+STIF:Line::C01742:,RAIL,longTrain,A
+STIF:Line::C01743:,RAIL,longTrain,B
